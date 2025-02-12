@@ -285,13 +285,112 @@ app.post("/update-cart", isAuthenticated, async (req, res) => {
 // APIs for placing order and getting confirmation
 // TODO: Implement place-order API, which updates the order,orderitems,cart,orderaddress tables
 app.post("/place-order", isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;  // Get logged-in user ID
+    const client = await pool.connect();  // Get a new client connection from the pool
 
+    // 1. Retrieve cart items
+    const cartResult = await client.query(
+        `SELECT c.item_id as product_id, p.name as product_name, c.quantity, p.price, p.stock_quantity, (c.quantity * p.price) AS total_price
+         FROM Cart c
+         JOIN Products p ON c.item_id = p.product_id
+         WHERE c.user_id = $1`, 
+        [userId]
+    );
+    const cartItems = cartResult.rows;
+
+    if (cartItems.length === 0) {
+        return res.status(400).json({ message: "Cart is empty" });
+    }
+
+    // 2. Check stock availability
+    for (const item of cartItems) {
+        if (item.quantity > item.stock_quantity) {
+            return res.status(400).json({message : `Insufficient stock for ${item.product_name}`});
+        }
+    }
+
+    // 3. Calculate total order amount
+    let totalAmount = cartItems.reduce((sum, item) => sum + parseFloat(item.total_price), parseFloat(0));
+    totalAmount = totalAmount.toFixed(2);
+
+    // 4. Insert order details into Orders table
+    const orderResult = await client.query(
+        `INSERT INTO Orders (user_id,order_date, total_amount) VALUES ($1,CURRENT_TIMESTAMP, $2) RETURNING order_id`,
+        [userId, totalAmount]
+    );
+    const orderId = orderResult.rows[0].order_id;
+
+    // 5. Insert each cart item into OrderItems table
+    for (const item of cartItems) {
+        await client.query(
+            `INSERT INTO OrderItems (order_id, product_id, quantity, price)
+             VALUES ($1, $2, $3, $4)`,
+            [orderId, item.product_id, item.quantity, item.price]
+        );
+
+        // 6. Update product stock
+        await client.query(
+            `UPDATE Products SET stock_quantity = stock_quantity - $1 WHERE product_id = $2`,
+            [item.quantity, item.product_id]
+        );
+    }
+
+    await client.query(`DELETE FROM Products WHERE stock_quantity = 0`);
+
+    await client.query(`DELETE FROM Cart WHERE user_id = $1`, [userId]);
+
+    await client.query('COMMIT');  // Commit transaction
+
+    // Redirect to order confirmation page with order ID
+    res.status(200).json({ message: "Order placed successfully"});
+
+} catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: "Error placing order" });
+} finally {
+    client.release();  // Release the client back to the pool
+}
 });
 
 // API for order confirmation
 // TODO: same as lab4
 app.get("/order-confirmation", isAuthenticated, async (req, res) => {
+  try {
+    const orderId_rows = (await pool.query('SELECT order_id FROM Orders WHERE user_id = $1 ORDER BY order_date DESC LIMIT 1', [req.session.userId])).rows;
+    if (orderId_rows.length === 0) {
+        return res.status(400).json({ message: "Order not found" });
+    }
 
+    const orderId = orderId_rows[0].order_id;
+    const userId = req.session.userId;
+    
+    // Fetch order details
+    const orderResult = await pool.query(
+        `SELECT order_id, order_date, total_amount
+         FROM Orders
+         WHERE order_id = $1 AND user_id = $2`,
+        [orderId, userId]
+    );
+    const order = orderResult.rows[0];
+    order.user_id = userId;
+    // Fetch order items
+    const orderItemsResult = await pool.query(
+        `SELECT oi.order_id AS order_id,p.product_id AS product_id, oi.quantity AS quantity, oi.price AS price,p.name AS product_name
+         FROM OrderItems oi
+         JOIN Products p ON oi.product_id = p.product_id
+         WHERE oi.order_id = $1
+         ORDER BY p.product_id`,
+        [orderId]
+    );
+    const orderItems = orderItemsResult.rows;
+
+    // Render the order-confirmation page with order details
+    res.status(200).json({ message: "Order fetch successfully", order: order, orderItems: orderItems });
+
+} catch (error) {
+    res.status(500).json({ message: "Error fetching order details" });
+}
 });
 
 ////////////////////////////////////////////////////
