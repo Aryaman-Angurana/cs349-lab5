@@ -1,27 +1,47 @@
 import React from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../config/config";
 
 const Navbar = () => {
-  const navigate = useNavigate(); // Use this to redirect users
+    const navigate = useNavigate();
 
-  // TODO: Implement the handleLogout function.
-  // This function should do an API call to log the user out.
-  // On successful logout, redirect the user to the login page.
-  const handleLogout = async (e) => {
-    e.preventDefault();
-    // Implement logout logic here
-  };
+    // Logout function
+    const handleLogout = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch(`${apiUrl}/logout`, {
+                method: "POST",
+                credentials: "include", // Ensure session-based logout
+            });
 
-  // TODO: Use JSX to create a navigation bar with buttons for:
-  // - Home
-  // - Products
-  // - Cart
-  // - Logout
-  return (
-    <nav>
-      {/* Implement navigation buttons here */}
-    </nav>
-  );
+            if (response.ok) {
+                navigate("/login"); // Redirect to login page after logout
+            } else {
+                console.error("Logout failed");
+            }
+        } catch (error) {
+            console.error("Error during logout:", error);
+        }
+    };
+
+    return (
+        <nav className="navbar">
+            <ul>
+                <li>
+                    <button onClick={() => navigate("/dashboard")}>Home</button>
+                </li>
+                <li>
+                    <button onClick={() => navigate("/products")}>Products</button>
+                </li>
+                <li>
+                    <button onClick={() => navigate("/cart")}>Cart</button>
+                </li>
+                <li>
+                    <button onClick={handleLogout}>Logout</button>
+                </li>
+            </ul>
+        </nav>
+    );
 };
 
 export default Navbar;

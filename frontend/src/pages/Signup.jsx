@@ -12,7 +12,6 @@ const Signup = () => {
                 const response = await fetch(`${apiUrl}/isLoggedIn`, {
                     credentials: "include",
                 });
-                const data = await response.json();
 
                 if (response.ok) {
                     navigate("/dashboard");
