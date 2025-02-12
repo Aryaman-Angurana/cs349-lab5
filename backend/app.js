@@ -46,33 +46,64 @@ app.use(
 // TODO: Implement authentication middleware
 // Redirect unauthenticated users to the login page with respective status code
 function isAuthenticated(req, res, next) {
-  
+  if (!req.session.user) {
+    return res.status(400).json({ message: "Unauthorized" });
+  }
+  next();
 }
 
 // TODO: Implement user signup logic
 // return JSON object with the following fields: {username, email, password}
 // use correct status codes and messages mentioned in the lab document
-app.post('/signup', isLoggedIn, async (req, res) => {
-
+app.post('/signup', async (req, res) => {
+  try {
+      const { username, email, password } = req.body;
+      const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ message: "Error: Email is already registered." });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await pool.query("INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)", [username, email, hashedPassword]);
+      res.status(200).json({ message: "User Registered Successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error signing up" });
+    }
 });
 
 // TODO: Implement user signup logic
 // return JSON object with the following fields: {email, password}
 // use correct status codes and messages mentioned in the lab document
 app.post("/login", async (req, res) => {
+  try {
+      const { email, password } = req.body;
+      const user = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+      if (user.rows.length === 0 || !(await bcrypt.compare(password, user.rows[0].password_hash))) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+      req.session.user = { id: user.rows[0].user_id, username: user.rows[0].username };
+      res.status(200).json({ message: "Login successful" });
+    } catch (error) {
+      res.status(500).json({ message: "Error logging in" });
+    }
 });
 
 
 // TODO: Implement API used to check if the client is currently logged in or not.
 // use correct status codes and messages mentioned in the lab document
 app.get("/isLoggedIn", async (req, res) => {
-
+  if (req.session.user) {
+    return res.status(200).json({ message: "Logged in", username: req.session.user.username });
+  }
+  res.status(400).json({ message: "Not logged in" });
 });
 
 // TODO: Implement API used to logout the user
 // use correct status codes and messages mentioned in the lab document
-app.get("/logout", (req, res) => {
-
+app.post("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ message: "Failed to log out" });
+    res.status(200).json({ message: "Logged out successfully" });
+  });
 });
 
 ////////////////////////////////////////////////////
@@ -80,13 +111,18 @@ app.get("/logout", (req, res) => {
 // use correct status codes and messages mentioned in the lab document
 // TODO: Fetch and display all products from the database
 app.get("/list-products", isAuthenticated, async (req, res) => {
-
+  try {
+    const products = await pool.query("SELECT product_id, name, price FROM products ORDER BY product_id");
+    res.status(200).json({ message: "Products fetched successfully", products: products.rows });
+  } catch (error) {
+    res.status(500).json({ message: "Error listing products" });
+  }
 });
 
 // APIs for cart: add_to_cart, display-cart, remove-from-cart
 // TODO: impliment add to cart API which will add the quantity of the product specified by the user to the cart
 app.post("/add-to-cart", isAuthenticated, async (req, res) => {
-
+  
 });
 
 // TODO: Implement display-cart API which will returns the products in the cart
