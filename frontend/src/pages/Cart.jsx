@@ -1,127 +1,178 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../config/config";
 import "../css/Cart.css";
 
 const Cart = () => {
-  // TODO: Implement the checkStatus function
-  // If the user is already logged in, fetch the cart.
-  // If not, redirect to the login page.
-  useEffect(() => {
-    const checkStatus = async () => {
-      // Implement your logic to check if the user is logged in
-      // If logged in, fetch the cart data, otherwise navigate to /login
+    const navigate = useNavigate();
+    const [cart, setCart] = useState([]);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [pincode, setPincode] = useState("");
+    const [street, setStreet] = useState("");
+    const [city, setCity] = useState("");
+    const [state, setState] = useState("");
+    const [message, setMessage] = useState("");
+    
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/isLoggedIn`, {
+                    method: "GET",
+                    credentials: "include",
+                });
+                if (!response.ok) {
+                    navigate("/login");
+                    return;
+                }
+                fetchCart();
+            } catch (error) {
+                console.error("Error checking login status:", error);
+                navigate("/login");
+            }
+        };
+        checkStatus();
+    }, [navigate]);
+
+    const fetchCart = async () => {
+        try {
+            const response = await fetch(`${apiUrl}/display-cart`, {
+                method: "GET",
+                credentials: "include",
+            });
+            const data = await response.json();
+            var cart_data = data.cart;
+            if (response.ok) {
+                setCart(cart_data.sort((a, b) => a.product_id - b.product_id));
+                setTotalPrice(data.totalPrice);
+            } else {
+                setMessage("Your cart is empty");
+            }
+        } catch (error) {
+            console.error("Error fetching cart:", error);
+        }
     };
-    checkStatus();
-  }, []);
 
-  // TODO: Manage cart state with useState
-  // cart: Stores the items in the cart
-  // totalPrice: Stores the total price of all cart items
-  // error: Stores any error messages (if any)
-  // message: Stores success or info messages
-  
+    const updateQuantity = async (productId, change, currentQuantity) => {
+        const newQuantity = change;
+        try {
+            await fetch(`${apiUrl}/update-cart`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ product_id : productId, quantity: newQuantity }),
+            });
+            fetchCart();
+        } catch (error) {
+            console.error("Error updating cart quantity:", error);
+        }
+    };
 
-  // TODO: Implement the fetchCart function
-  // This function should fetch the user's cart data and update the state variables
-  const fetchCart = async () => {
-    // Implement your logic to fetch the cart data
-    // Use the API endpoint to get the user's cart
-  };
+    const removeFromCart = async (productId) => {
+        try {
+            await fetch(`${apiUrl}/remove-from-cart`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ product_id :  productId }),
+            });
+            fetchCart();
+        } catch (error) {
+            console.error("Error removing item from cart:", error);
+        }
+    };
 
-  // TODO: Implement the updateQuantity function
-  // This function should handle increasing or decreasing item quantities
-  // based on user input. Make sure it doesn't exceed stock limits.
-  const updateQuantity = async (productId, change, currentQuantity, stockQuantity) => {
-    // Implement your logic for quantity update
-    // Validate quantity bounds and update the cart via API
-  };
+    const handlePinCodeChange = async (e) => {
+        const enteredPincode = e.target.value;
+        setPincode(enteredPincode);
+        if (enteredPincode.length === 6) {
+            try {
+                const response = await fetch(`https://api.postalpincode.in/pincode/${enteredPincode}`);
+                const data = await response.json();
+                if (data[0].Status === "Success") {
+                    setCity(data[0].PostOffice[0].Name);
+                    setState(data[0].PostOffice[0].State);
+                } else {
+                    setCity("");
+                    setState("");
+                }
+            } catch (error) {
+                console.error("Error fetching pincode details:", error);
+            }
+        }
+    };
 
-  // TODO: Implement the removeFromCart function
-  // This function should remove an item from the cart when the "Remove" button is clicked
-  const removeFromCart = async (productId) => {
-    // Implement your logic to remove an item from the cart
-    // Use the appropriate API call to handle this
-  };
+    const handleCheckout = async () => {
+        // if (!pincode || !street || !city || !state) {
+        //     alert("Please fill in all address fields");
+        //     return;
+        // }
+        try {
+            const response = await fetch(`${apiUrl}/place-order`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({address: { pincode, street, city, state } }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert("Order placed successfully!");
+                navigate("/order-confirmation");
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        } catch (error) {
+            console.error("Error placing order:", error);
+        }
+    };
 
-  // TODO: Implement the handleCheckout function
-  // This function should handle the checkout process and validate the address fields
-  // If the user is ready to checkout, place the order and navigate to order confirmation
-  const handleCheckout = async () => {
-    // Implement your logic for checkout, validate address and place order
-    // Make sure to clear the cart after successful checkout
-  };
-
-  // TODO: Implement the handlePinCodeChange function
-  // This function should fetch the city and state based on pincode entered by the user
-  const handlePinCodeChange = async (e) => {
-    // Implement the logic to fetch city and state by pincode
-    // Update the city and state fields accordingly
-  };
-
-  // TODO: Display error messages if any error occurs
-  // if (error) {
-  //   return <div className="cart-error">{error}</div>;
-  // }
-
-  // return (
-  //   <>
-  //     <div className="cart-container">
-  //       <h1>Your Cart</h1>
-
-  //       {/* TODO: Display the success or info message */}
-  //       {message && <div className="cart-message">{message}</div>}
-
-  //       {/* TODO: Implement the cart table UI */}
-  //       {/* If cart is empty, display an empty cart message */}
-  //       {cart.length === 0 ? (
-  //         <p className="empty-cart-message">Your cart is empty</p>
-  //       ) : (
-  //         <>
-  //           <table className="cart-table">
-  //             <thead>
-  //               <tr>
-  //                 <th>Product</th>
-  //                 <th>Price</th>
-  //                 <th>Stock Available</th>
-  //                 <th>Quantity</th>
-  //                 <th>Total</th>
-  //                 <th>Actions</th>
-  //               </tr>
-  //             </thead>
-  //             <tbody>
-  //               {/* TODO: Render cart items dynamically */}
-  //               {/* Use map() to render each cart item */}
-  //               {cart.map((item) => (
-  //                 <tr key={item.item_id}>
-  //                   {/* TODO: Render product details here */}
-  //                   {/* Display item name, price, stock, quantity, and total */}
-  //                 </tr>
-  //               ))}
-  //             </tbody>
-  //           </table>
-
-  //           {/* TODO: Implement the address form */}
-  //           {/* Allow users to input pincode, street, city, and state */}
-  //           <form>
-  //             {/* Implement address fields */}
-  //           </form>
-
-  //           {/* TODO: Display total price and the checkout button */}
-  //           <div className="cart-total">
-  //             {/* Display the total price */}
-  //             <h3>Total: ${totalPrice}</h3>
-  //             {/* Checkout button should be enabled only if there are items in the cart */}
-  //             <button onClick={handleCheckout} disabled={cart.length === 0}>
-  //               Proceed to Checkout
-  //             </button>
-  //           </div>
-  //         </>
-  //       )}
-  //     </div>
-  //   </>
-  // );
-  return <div></div>
+    return (
+        <div className="cart-container">
+            <h1>Your Cart</h1>
+            {message && <p className="cart-message">{message}</p>}
+            
+                <>{cart.length > 0 && (
+                    <table className="cart-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Quantity</th>
+                                <th>Total</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {cart.map((item) => (
+                                <tr key={item.product_id}>
+                                    <td>{item.product_name}</td>
+                                    <td>${item.unit_price}</td>
+                                    <td>{item.stock_quantity}</td>
+                                    <td>
+                                        <button onClick={() => updateQuantity(item.product_id, -1, item.quantity)}>-</button>
+                                        {item.quantity}
+                                        <button onClick={() => updateQuantity(item.product_id, 1, item.quantity)}>+</button>
+                                    </td>
+                                    <td>${item.total_item_price}</td>
+                                    <td>
+                                        <button onClick={() => removeFromCart(item.product_id)}>Remove</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>)}
+                    <h3>Total Price: ${totalPrice}</h3>
+                    <form>
+                        <input type="text" placeholder="Pincode" value={pincode} onChange={handlePinCodeChange} />
+                        <input type="text" placeholder="Street" value={street} onChange={(e) => setStreet(e.target.value)} />
+                        <input type="text" placeholder="City" value={city} readOnly />
+                        <input type="text" placeholder="State" value={state} readOnly />
+                    </form>
+                    <button onClick={handleCheckout} disabled={cart.length === 0}>Proceed to Checkout</button>
+                </>
+            
+        </div>
+    );
 };
 
 export default Cart;

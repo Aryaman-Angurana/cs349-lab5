@@ -1,92 +1,169 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { apiUrl } from "../config/config";
 
 const Products = () => {
-  const navigate = useNavigate(); // Use this to redirect users
+    const navigate = useNavigate();
 
-  // TODO: Implement the checkStatus function.
-  // This function should check if the user is logged in.
-  // If not logged in, redirect to the login page.
-  // if logged in, fetch the products
-  useEffect(() => {
-    const checkStatus = async () => {
-      // Implement API call here to check login status
+    // State to store fetched products
+    const [products, setProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [quantities, setQuantities] = useState({}); // To track selected quantities
+
+    // Check if user is logged in and fetch products
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/isLoggedIn`, {
+                    method: "GET",
+                    credentials: "include",
+                });
+
+                if (!response.ok) {
+                    navigate("/login");
+                    return;
+                }
+
+                // Fetch products after confirming authentication
+                fetchProducts();
+            } catch (error) {
+                console.error("Error checking login status:", error);
+                navigate("/login");
+            }
+        };
+
+        checkStatus();
+    }, [navigate]);
+
+    // Fetch products from backend
+    const fetchProducts = async () => {
+        try {
+            const response = await fetch(`${apiUrl}/list-products`, {
+                method: "GET",
+                credentials: "include",
+            });
+
+            if (response.ok) {
+                const data = (await response.json()).products;
+                setProducts(data.sort((a, b) => a.id - b.id)); // Sort by product_id
+                setQuantities(
+                    data.reduce((acc, product) => {
+                        acc[product.product_id] = 0; // Default quantity to 1
+                        return acc;
+                    }, {})
+                );
+            } else {
+                console.error("Failed to fetch products");
+            }
+        } catch (error) {
+            console.error("Error fetching products:", error);
+        }
     };
-    checkStatus();
-  }, []);
 
-  // Read about useState to understand how to manage component state
-  const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+    // Handle search functionality
+    const handleSearch = (e) => {
+        e.preventDefault();
+        const filteredProducts = products.filter((product) =>
+            product.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setProducts(filteredProducts);
+    };
 
-  // NOTE: You are free to add more states and/or handler functions
-  // to implement the features that are required for this assignment
+    // Handle quantity change
+    const handleQuantityChange = (productId, change) => {
+        setQuantities((prevQuantities) => {
+            const newQuantity = Math.max(0, prevQuantities[productId] + change);
+            return { ...prevQuantities, [productId]: newQuantity };
+        });
+    };
 
-  // TODO: Fetch products from the APIx
-  // This function should send a GET request to fetch products
-  const fetchProducts = async () => {
-    // Implement the API call here to fetch product data
-  };
-  
-  // TODO: Implement the product quantity change function
-  // If the user clicks on plus (+), then increase the quantity by 1
-  // If the user clicks on minus (-), then decrease the quantity by 1
-  const handleQuantityChange = (productId, change) => {
+    // Add product to cart
+    const addToCart = async (productId) => {
+        const quantity = quantities[productId];
 
-  }
+        try {
+            const response = await fetch(`${apiUrl}/add-to-cart`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ product_id :productId,quantity : quantity }),
+            });
+            const data = await response.json();
 
-  // TODO: Add the product with the given productId to the cart
-  // the quantity of this product can be accessed by using a state
-  // use the API you implemented earlier
-  // display appropriate error messages if any
-  const addToCart = (productId) => {
+            if (response.ok) {
+                alert("Product added to cart!");
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        } catch (error) {
+            console.error("Error adding to cart:", error);
+        }
+    };
 
-  }
+    return (
+        <>
+            <Navbar />
+            <div>
+                <h1>Product List</h1>
 
-  // TODO: Implement the search functionality
-  const handleSearch = (e) => {
-    e.preventDefault();
-    // Implement the search logic here
-    // use Array.prototype.filter to filter the products
-    // that match with the searchTerm
-  };
+                {/* Search Bar */}
+                <form onSubmit={handleSearch}>
+                    <input
+                        type="text"
+                        placeholder="Search by product name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <button type="submit">Search</button>
+                </form>
 
-
-  // TODO: Display products with a table
-  // Display each product's details, such as ID, name, price, stock, etc.
-  return (
-    <>
-      <Navbar />
-      <div>
-        <h1>Product List</h1>
-        {/* Implement the search form */}
-        <form onSubmit={handleSearch}>
-          <input
-            type="text"
-            placeholder="Search by product name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button type="submit">Search</button>
-        </form>
-        <table>
-          <thead>
-            <tr>
-              <th>Product ID</th>
-              <th>Product Name</th>
-              <th>Price</th>
-              <th>Stock Available</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Map over the products array to display each product */}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
+                {/* Product Table */}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product ID</th>
+                            <th>Product Name</th>
+                            <th>Price</th>
+                            <th>Stock Available</th>
+                            <th>Quantity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {products.map((product) => (
+                            <tr key={product.product_id}>
+                                <td>{product.product_id}</td>
+                                <td>{product.name}</td>
+                                <td>${product.price}</td>
+                                <td>{product.stock_quantity}</td>
+                                <td>
+                                    <button
+                                        onClick={() => handleQuantityChange(product.product_id, -1)}
+                                        disabled={quantities[product.product_id] <= 0}
+                                    >
+                                        -
+                                    </button>
+                                    {quantities[product.product_id]}
+                                    <button
+                                        onClick={() => handleQuantityChange(product.product_id, 1)}
+                                        disabled={quantities[product.product_id] >= product.stock_quantity}
+                                    >
+                                        +
+                                    </button>
+                                </td>
+                                <td>
+                                    <button onClick={() => addToCart(product.product_id)}>
+                                        Add to Cart
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </>
+    );
 };
 
 export default Products;

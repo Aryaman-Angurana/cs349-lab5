@@ -17,7 +17,7 @@ function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/products" element={<Products />} />
       <Route path="/cart" element={<Cart />} />
-      <Route path="/orderconfirmation" element={<OrderConfirmation />} />
+      <Route path="/order-confirmation" element={<OrderConfirmation />} />
       <Route path="*" element={<NotFound />} /> {/* 404 Page */}
     </Routes>
   );

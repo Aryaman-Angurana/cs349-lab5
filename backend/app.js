@@ -112,7 +112,7 @@ app.post("/logout", (req, res) => {
 // TODO: Fetch and display all products from the database
 app.get("/list-products", isAuthenticated, async (req, res) => {
   try {
-    const products = await pool.query("SELECT product_id, name, price FROM products ORDER BY product_id");
+    const products = await pool.query("SELECT product_id, name, price, stock_quantity FROM products ORDER BY product_id");
     res.status(200).json({ message: "Products fetched successfully", products: products.rows });
   } catch (error) {
     res.status(500).json({ message: "Error listing products" });
@@ -177,7 +177,8 @@ app.get("/display-cart", isAuthenticated, async (req, res) => {
         `SELECT 
             c.item_id as product_id, 
             p.name as product_name, 
-            c.quantity as quantity, 
+            c.quantity as quantity,
+            p.stock_quantity as stock_quantity,
             p.price as unit_price, 
             (c.quantity * p.price) AS total_item_price
         FROM Cart c
