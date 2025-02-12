@@ -10,10 +10,10 @@ const port = 4000;
 // PostgreSQL connection
 // NOTE: use YOUR postgres username and password here
 const pool = new Pool({
-  user: 'your_username',
+  user: 'kanak-barfa',
   host: 'localhost',
   database: 'ecommerce',
-  password: 'your_password',
+  password: '12345678',
   port: 5432,
 });
 
@@ -126,7 +126,7 @@ app.post("/add-to-cart", isAuthenticated, async (req, res) => {
     // Fetch product details to check stock availability
     const quantity = req.body.quantity;
     const productId = req.body.product_id;
-    const userId = req.session.userId;
+    const userId = req.session.user.id;
     const productResult = await pool.query('SELECT * FROM products WHERE product_id = $1', [productId]);
     
     // Check if product exists
@@ -150,7 +150,7 @@ app.post("/add-to-cart", isAuthenticated, async (req, res) => {
 
     // Check if the total quantity exceeds available stock
     if (totalQuantity > availableStock) {
-      return res.status(400).json({ message: `Insufficient stock for ${product.rows[0].name}.` });
+      return res.status(400).json({ message: `Insufficient stock for ${product.name}.` });
     }
 
     // If the product is already in the cart, update the quantity
@@ -162,9 +162,9 @@ app.post("/add-to-cart", isAuthenticated, async (req, res) => {
         await pool.query('INSERT INTO cart (user_id, item_id, quantity) VALUES ($1, $2, $3)', 
                          [userId, productId, totalQuantity]);
     }
-
-    res.status(200).json({ message: `Successfully added ${quantity} of ${product.rows[0].name} to your cart.` });
+    res.status(200).json({ message: `Successfully added ${quantity} of ${product.name} to your cart.` });
 } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Error adding to cart" });
 }
 });
@@ -172,7 +172,7 @@ app.post("/add-to-cart", isAuthenticated, async (req, res) => {
 // TODO: Implement display-cart API which will returns the products in the cart
 app.get("/display-cart", isAuthenticated, async (req, res) => {
   try {
-    const userId = req.session.userId;  // Get logged-in user ID
+    const userId = req.session.user.id;  // Get logged-in user ID
     const result = await pool.query(
         `SELECT 
             c.item_id as product_id, 
@@ -195,7 +195,7 @@ app.get("/display-cart", isAuthenticated, async (req, res) => {
 
     let totalCartPrice = parseFloat(0);
     cartItems.forEach(item => {
-      item.Cart.item_id=item.product_id;
+      item.item_id=item.product_id;
       item.unit_price = parseFloat(item.unit_price).toFixed(2);
       item.total_item_price = parseFloat(item.total_item_price).toFixed(2);
       totalCartPrice += parseFloat(item.total_item_price);
@@ -206,6 +206,7 @@ app.get("/display-cart", isAuthenticated, async (req, res) => {
     return res.status(200).json({ message: "Cart fetched successfully.", cart: cartItems, totalPrice: totalCartPrice });
 
 } catch (error) {
+    console.log(error);
     return res.status(500).json({ message: "Error fetching cart" });
 }
 });
@@ -214,7 +215,7 @@ app.get("/display-cart", isAuthenticated, async (req, res) => {
 app.post("/remove-from-cart", isAuthenticated, async (req, res) => {
   try {
     const productId= req.body.product_id;  // Get the product ID from the form
-    const userId = req.session.userId;  // Get the user ID from session
+    const userId = req.session.user.id;  // Get the user ID from session
       // Check if the product exists in the user's cart
       const cartResult = await pool.query('SELECT * FROM Cart WHERE user_id = $1 AND item_id = $2', [userId, productId]);
       
@@ -235,7 +236,7 @@ app.post("/update-cart", isAuthenticated, async (req, res) => {
     // Fetch product details to check stock availability
     const quantity = req.body.quantity;
     const productId = req.body.product_id;
-    const userId = req.session.userId;
+    const userId = req.session.user.id;
     const productResult = await pool.query('SELECT * FROM products WHERE product_id = $1', [productId]);
     
     // Check if product exists
@@ -278,6 +279,7 @@ app.post("/update-cart", isAuthenticated, async (req, res) => {
 
     res.status(200).json({ message: `Cart updated successfully` });
 } catch (error) {
+  console.log(error);
     res.status(500).json({ message: "Error adding to cart" });
 }
 });
@@ -285,9 +287,9 @@ app.post("/update-cart", isAuthenticated, async (req, res) => {
 // APIs for placing order and getting confirmation
 // TODO: Implement place-order API, which updates the order,orderitems,cart,orderaddress tables
 app.post("/place-order", isAuthenticated, async (req, res) => {
+  const client = await pool.connect();  // Get a new client connection from the pool
   try {
-    const userId = req.session.userId;  // Get logged-in user ID
-    const client = await pool.connect();  // Get a new client connection from the pool
+    const userId = req.session.user.id;  // Get logged-in user ID
 
     // 1. Retrieve cart items
     const cartResult = await client.query(
@@ -346,6 +348,7 @@ app.post("/place-order", isAuthenticated, async (req, res) => {
     res.status(200).json({ message: "Order placed successfully"});
 
 } catch (error) {
+  console.log(error);
     await client.query('ROLLBACK');
     res.status(500).json({ message: "Error placing order" });
 } finally {
@@ -357,13 +360,13 @@ app.post("/place-order", isAuthenticated, async (req, res) => {
 // TODO: same as lab4
 app.get("/order-confirmation", isAuthenticated, async (req, res) => {
   try {
-    const orderId_rows = (await pool.query('SELECT order_id FROM Orders WHERE user_id = $1 ORDER BY order_date DESC LIMIT 1', [req.session.userId])).rows;
+    const orderId_rows = (await pool.query('SELECT order_id FROM Orders WHERE user_id = $1 ORDER BY order_date DESC LIMIT 1', [req.session.user.id])).rows;
     if (orderId_rows.length === 0) {
         return res.status(400).json({ message: "Order not found" });
     }
 
     const orderId = orderId_rows[0].order_id;
-    const userId = req.session.userId;
+    const userId = req.session.user.id;
     
     // Fetch order details
     const orderResult = await pool.query(
