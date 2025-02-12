@@ -12,9 +12,7 @@ const Login = () => {
                 const response = await fetch(`${apiUrl}/isLoggedIn`, {
                     credentials: "include",
                 });
-                const data = await response.json();
-
-                if (data.isAuthenticated) {
+                if (response.ok) {
                     navigate("/dashboard");
                 }
             } catch (error) {
