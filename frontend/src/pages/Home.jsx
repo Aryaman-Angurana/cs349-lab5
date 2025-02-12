@@ -1,15 +1,37 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../config/config";
 
-// Use the API you implemented earlier, 
-// to check if the user is logged in or not
-// if yes, navigate to the dashboard
-// else to the login page
-
-// use the React Hooks useNavigate and useEffect
-// to implement this component
 const Home = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/isLoggedIn`, {
+          method : "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+        });
+        const data = await response.json();
+        
+        if (data.status === "200") {
+          console.log(data);
+          navigate("/dashboard");
+        } else {
+          navigate("/login");
+        }
+      } catch (error) {
+        console.error("Error checking authentication status:", error);
+        navigate("/login");
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   return <div>HomePage</div>;
 };
