@@ -18,8 +18,7 @@ const Home = () => {
         });
         const data = await response.json();
         
-        if (data.status === "200") {
-          console.log(data);
+        if (response.ok) {
           navigate("/dashboard");
         } else {
           navigate("/login");
@@ -31,7 +30,7 @@ const Home = () => {
     };
 
     checkAuth();
-  }, [navigate]);
+  },[]);
 
   return <div>HomePage</div>;
 };

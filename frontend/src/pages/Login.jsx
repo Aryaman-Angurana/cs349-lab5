@@ -1,50 +1,99 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../config/config";
 
 const Login = () => {
-  const navigate = useNavigate(); // Use this to redirect users
+    const navigate = useNavigate();
 
+    // useEffect to check if user is already logged in
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/isLoggedIn`, {
+                    credentials: "include",
+                });
+                const data = await response.json();
 
-  // useEffect checks if the user is already logged in
-  // if already loggedIn then it will simply navigate to the dashboard
-  // TODO: Implement the checkStatus function.
-  useEffect(() => {
-    const checkStatus = async () => {
-      // Implement your logic here
+                if (data.isAuthenticated) {
+                    navigate("/dashboard");
+                }
+            } catch (error) {
+                console.error("Error checking authentication:", error);
+            }
+        };
+
+        checkStatus();
+    }, [navigate]);
+
+    // State to handle form data
+    const [formData, setFormData] = useState({
+        email: "",
+        password: "",
+    });
+
+    const [error, setError] = useState(""); // Store error messages
+
+    // Handle input changes
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
-    checkStatus();
-  }, []);
 
-  // Read about useState to manage form data
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+    // Handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(""); // Reset previous error
 
-  // TODO: This function handles input field changes
-  const handleChange = (e) => {
-    // Implement your logic here
-  };
+        try {
+            const response = await fetch(`${apiUrl}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include", // Ensure cookies are sent
+                body: JSON.stringify(formData),
+            });
 
-  // TODO: Implement the login operation
-  // This function should send form data to the server
-  // and handle login success/failure responses.
-  // Use the API you made for handling this.
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    // Implement the login logic here
-  };
+            const data = await response.json();
 
-  // TODO: Use JSX to create a login form with input fields for:
-  // - Email
-  // - Password
-  // - A submit button
-  return (
-    <div>
-      {/* Implement the form UI here */}
-    </div>
-  );
+            if (response.ok) {
+                navigate("/dashboard"); // Redirect on successful login
+            } else {
+                setError(data.message || "Invalid credentials");
+            }
+        } catch (error) {
+            setError("An error occurred. Please try again.");
+        }
+    };
+
+    return (
+        <div className="login-container">
+            <h2>Login</h2>
+            {error && <p className="error-message">{error}</p>}
+            <form onSubmit={handleSubmit}>
+                <label>Email:</label>
+                <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                />
+
+                <label>Password:</label>
+                <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                />
+
+                <button type="submit">Login</button>
+            </form>
+
+            <p>
+                Don't have an account? <a href="/signup">Sign up</a>
+            </p>
+        </div>
+    );
 };
 
 export default Login;
