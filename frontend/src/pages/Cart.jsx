@@ -102,10 +102,10 @@ const Cart = () => {
     };
 
     const handleCheckout = async () => {
-        // if (!pincode || !street || !city || !state) {
-        //     alert("Please fill in all address fields");
-        //     return;
-        // }
+        if (!pincode || !street || !city || !state) {
+            alert("Please fill in all address fields");
+            return;
+        }
         try {
             const response = await fetch(`${apiUrl}/place-order`, {
                 method: "POST",

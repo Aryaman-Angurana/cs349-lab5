@@ -291,7 +291,7 @@ app.post("/place-order", isAuthenticated, async (req, res) => {
   const client = await pool.connect();  // Get a new client connection from the pool
   try {
     const userId = req.session.user.id;  // Get logged-in user ID
-
+    const {street , city , state , pincode} = req.body.address;
     // 1. Retrieve cart items
     const cartResult = await client.query(
         `SELECT c.item_id as product_id, p.name as product_name, c.quantity, p.price, p.stock_quantity, (c.quantity * p.price) AS total_price
@@ -338,10 +338,12 @@ app.post("/place-order", isAuthenticated, async (req, res) => {
             [item.quantity, item.product_id]
         );
     }
-
+    
     await client.query(`DELETE FROM Products WHERE stock_quantity = 0`);
 
     await client.query(`DELETE FROM Cart WHERE user_id = $1`, [userId]);
+
+    await client.query(`INSERT INTO orderaddress (order_id, street, city, state, pincode) VALUES ($1, $2, $3, $4, $5)`, [orderId, street, city, state, pincode]);
 
     await client.query('COMMIT');  // Commit transaction
 
@@ -365,10 +367,9 @@ app.get("/order-confirmation", isAuthenticated, async (req, res) => {
     if (orderId_rows.length === 0) {
         return res.status(400).json({ message: "Order not found" });
     }
-
     const orderId = orderId_rows[0].order_id;
     const userId = req.session.user.id;
-    
+    const address = (await pool.query('SELECT street, city, state, pincode FROM orderaddress WHERE order_id = $1', [orderId])).rows[0];
     // Fetch order details
     const orderResult = await pool.query(
         `SELECT order_id, order_date, total_amount
@@ -390,7 +391,7 @@ app.get("/order-confirmation", isAuthenticated, async (req, res) => {
     const orderItems = orderItemsResult.rows;
 
     // Render the order-confirmation page with order details
-    res.status(200).json({ message: "Order fetch successfully", order: order, orderItems: orderItems });
+    res.status(200).json({ message: "Order fetch successfully", order: order, orderItems: orderItems, address :  address});
 
 } catch (error) {
     res.status(500).json({ message: "Error fetching order details" });

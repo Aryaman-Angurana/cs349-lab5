@@ -64,8 +64,8 @@ const OrderConfirmation = () => {
             <h3>Order Date: {orderDetails.order.order_date}</h3>
             <h3>Total Amount: ${orderDetails.order.total_amount}</h3>
 
-            {/* <h3>Delivery Address:</h3> */}
-            {/* <p>{orderDetails.address.street}, {orderDetails.address.city}, {orderDetails.address.state}, {orderDetails.address.pincode}</p> */}
+            <h3>Delivery Address:</h3>
+            <p>{orderDetails.address.street}, {orderDetails.address.city}, {orderDetails.address.state}, {orderDetails.address.pincode}</p>
 
             <table className="order-table">
               <thead>
